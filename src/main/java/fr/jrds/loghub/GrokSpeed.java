@@ -22,24 +22,39 @@ import io.thekraken.grok.api.exception.GrokException;
 @State(Scope.Thread)
 public class GrokSpeed {
 
-    private io.thekraken.grok.api.Grok grok;
+    private io.thekraken.grok.api.Grok grok1;
+    private io.thekraken.grok.api.Grok grok2;
     private Pattern syslog;
 
     @Setup
     public void prepare() throws GrokException {
-        grok = new io.thekraken.grok.api.Grok();
-        grok.addPattern("NONNEGINT", "\\b(?:[0-9]+)\\b");
-        grok.addPattern("GREEDYDATA", ".*");
-        grok.compile("^<%{NONNEGINT:syslog_pri}>%{GREEDYDATA:message}", false);
+        grok1 = new io.thekraken.grok.api.Grok();
+        grok1.addPattern("NONNEGINT", "\\b(?:[0-9]+)\\b");
+        grok1.addPattern("GREEDYDATA", ".*");
+        grok1.compile("^<%{NONNEGINT:syslog_pri}>%{GREEDYDATA:message}", false);
+        
+        grok2 = new io.thekraken.grok.api.Grok();
+        grok2.compile("<(?<syslogpri>\\b(?:[0-9]+)\\b)>(?<message>.*)", false);
+        
         syslog = Pattern.compile("<(?<syslogpri>\\b(?:[0-9]+)\\b)>(?<message>.*)");
     }
 
     @Benchmark
     public Match grokSpeed() {
-        Match gm = grok.match("<1>totor");
+        Match gm = grok1.match("<1>totor");
         gm.captures();
         Map<String, Object> mapped = gm.toMap();
         assert mapped.get("syslog_pri") != null;
+        assert mapped.get("message") != null;
+        return gm;
+    }
+
+    @Benchmark
+    public Match notrealgrokSpeed() {
+        Match gm = grok2.match("<1>totor");
+        gm.captures();
+        Map<String, Object> mapped = gm.toMap();
+        assert mapped.get("syslogpri") != null;
         assert mapped.get("message") != null;
         return gm;
     }
