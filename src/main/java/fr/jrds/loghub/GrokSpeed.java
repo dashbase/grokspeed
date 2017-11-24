@@ -1,5 +1,6 @@
 package fr.jrds.loghub;
 
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,8 +38,9 @@ public class GrokSpeed {
     public Match grokSpeed() {
         Match gm = grok.match("<1>totor");
         gm.captures();
-        assert gm.toMap().get("syslog_pri") != null;
-        assert gm.toMap().get("message") != null;
+        Map<String, Object> mapped = gm.toMap();
+        assert mapped.get("syslog_pri") != null;
+        assert mapped.get("message") != null;
         return gm;
     }
 
