@@ -1,10 +1,15 @@
 package fr.jrds.loghub;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.google.common.base.Charsets;
+import com.google.common.io.Resources;
+import io.thekraken.grok.api.GrokCompiler;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.Scope;
@@ -18,23 +23,27 @@ import org.openjdk.jmh.runner.options.TimeValue;
 
 import io.thekraken.grok.api.Match;
 import io.thekraken.grok.api.exception.GrokException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @State(Scope.Thread)
 public class GrokSpeed {
+    private static Logger LOGGER = LoggerFactory.getLogger(GrokSpeed.class);
 
     private io.thekraken.grok.api.Grok grok1;
     private io.thekraken.grok.api.Grok grok2;
     private Pattern syslog;
 
+    private GrokCompiler compiler = GrokCompiler.newInstance();
+
     @Setup
     public void prepare() throws GrokException {
-        grok1 = new io.thekraken.grok.api.Grok();
-        grok1.addPattern("NONNEGINT", "\\b(?:[0-9]+)\\b");
-        grok1.addPattern("GREEDYDATA", ".*");
-        grok1.compile("^<%{NONNEGINT:syslog_pri}>%{GREEDYDATA:message}", false);
-        
-        grok2 = new io.thekraken.grok.api.Grok();
-        grok2.compile("<(?<syslogpri>\\b(?:[0-9]+)\\b)>(?<message>.*)", false);
+        compiler.register("NONNEGINT", "\\b(?:[0-9]+)\\b");
+        compiler.register("GREEDYDATA", ".*");
+
+        grok1 = compiler.compile("^<%{NONNEGINT:syslog_pri}>%{GREEDYDATA:message}", false);
+
+        grok2 = compiler.compile("<(?<syslogpri>\\b(?:[0-9]+)\\b)>(?<message>.*)", false);
         
         syslog = Pattern.compile("<(?<syslogpri>\\b(?:[0-9]+)\\b)>(?<message>.*)");
     }
@@ -42,8 +51,8 @@ public class GrokSpeed {
     @Benchmark
     public Match grokSpeed() {
         Match gm = grok1.match("<1>totor");
-        gm.captures();
-        Map<String, Object> mapped = gm.toMap();
+
+        Map<String, Object> mapped = gm.capture();
         assert mapped.get("syslog_pri") != null;
         assert mapped.get("message") != null;
         return gm;
@@ -52,8 +61,7 @@ public class GrokSpeed {
     @Benchmark
     public Match notrealgrokSpeed() {
         Match gm = grok2.match("<1>totor");
-        gm.captures();
-        Map<String, Object> mapped = gm.toMap();
+        Map<String, Object> mapped = gm.capture();
         assert mapped.get("syslogpri") != null;
         assert mapped.get("message") != null;
         return gm;
